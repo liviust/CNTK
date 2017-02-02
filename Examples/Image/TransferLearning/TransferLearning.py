@@ -34,8 +34,8 @@ new_output_node_name = "prediction"
 
 # define base model location and characteristics
 base_model_file = os.path.join(base_folder, "..", "PretrainedModels", "AlexNet.model")
-image_height = 224
-image_width = 224
+image_height = 227
+image_width = 227
 num_channels = 3
 feature_node_name = "features"
 last_hidden_node_name = "h2_d"
@@ -48,13 +48,6 @@ def create_mb_source(map_file, image_height, image_width, num_channels, num_clas
     image_source.map_features(features_stream_name, transforms)
     image_source.map_labels(label_stream_name, num_classes)
     return MinibatchSource(image_source, randomize=randomize)
-
-
-def get_cntk_image_input(image_path):
-    img = cv2.imread(image_path)
-    resized = cv2.resize(img, (image_width, image_height), interpolation=cv2.INTER_NEAREST)
-    hwc_format = np.ascontiguousarray(np.array(resized, dtype=np.float32).transpose(2, 0, 1))
-    return hwc_format
 
 
 # Creates the network model for transfer learning
@@ -70,7 +63,6 @@ def create_model(base_model_file, feature_node_name, last_hidden_node_name, num_
     # Add new dense layer for class prediction
     feat_norm = input_features - Constant(114)
     cloned_out = cloned_layers(feat_norm)
-    #z = Dense(num_classes, init=glorot_uniform(), activation=None, name=new_output_node_name) (cloned_out)
     z = Dense(num_classes, activation=None, name=new_output_node_name) (cloned_out)
 
     return z
@@ -96,17 +88,13 @@ def train_model(base_model_file, feature_node_name, last_hidden_node_name, num_c
     pe = classification_error(tl_model, label_input)
 
     # Set learning parameters
-    max_epochs = 20
+    max_epochs = 15
     mb_size = 50
-    momentum_time_constant = 20
     momentum_per_mb = 0.9
     l2_reg_weight = 0.0005
-    lr_per_sample = 0.0001
-    lr_per_mb = 0.01
+    lr_per_mb = 0.2
 
-    # lr_schedule = learning_rate_schedule(lr_per_sample, unit=UnitType.sample)
     lr_schedule = learning_rate_schedule(lr_per_mb, unit=UnitType.minibatch)
-    # mm_schedule = momentum_as_time_constant_schedule(momentum_time_constant)
     mm_schedule = momentum_schedule(momentum_per_mb)
 
     # Instantiate the trainer object
@@ -132,39 +120,29 @@ def train_model(base_model_file, feature_node_name, last_hidden_node_name, num_c
     return tl_model
 
 
-def eval_and_write(loaded_model, output_file, test_map_file):
+def eval_single_image(loaded_model, image_path):
+    # load and format image
+    img = cv2.imread(image_path)
+    resized = cv2.resize(img, (image_width, image_height), interpolation=cv2.INTER_NEAREST)
+    hwc_format = np.ascontiguousarray(np.array(resized, dtype=np.float32).transpose(2, 0, 1))
+
+    # compute model output
+    arguments = {loaded_model.arguments[0]: [hwc_format]}
+    output = loaded_model.eval(arguments)
+
+    # compute softmax probabilities from raw predictions
+    try:
+        exp_out = np.exp(output[0, 0].astype(np.float64))
+    except FloatingPointError:
+        exp_out = output[0, 0].astype(np.float64)
+    sum_exp = np.sum(exp_out)
+    probs = np.divide(exp_out, sum_exp)
+
+    return probs
+
+
+def eval_test_images(loaded_model, output_file, test_map_file):
     num_images = sum(1 for line in open(test_map_file))
-    minibatch_source = create_mb_source(test_map_file, image_height, image_width, num_channels, num_classes, randomize=True)
-
-    # load model and pick desired node as output
-    node_in_graph = loaded_model.find_by_name(new_output_node_name)
-    output_nodes  = combine([node_in_graph.owner])
-
-    # evaluate model and get desired node output
-    print("Evaluating model output node '%s' for %s images." % (new_output_node_name, num_images))
-    features_si = minibatch_source['features']
-    with open(output_file, 'wb') as results_file:
-        for i in range(0, num_images):
-            mb = minibatch_source.next_minibatch(1)
-            output = output_nodes.eval(mb[features_si])
-
-            # compute softmax probabilities from raw predictions
-            exp_out = np.exp(output[0, 0].astype(np.float64))
-            sum_exp = np.sum(exp_out)
-            probs = np.divide(exp_out, sum_exp)
-
-            np.savetxt(results_file, probs[np.newaxis], fmt="%.3f")
-
-
-def eval_from_image(loaded_model, output_file, test_map_file):
-    num_images = sum(1 for line in open(test_map_file))
-
-    # load model and pick desired node as output
-    # TODO: try loaded model directly
-    node_in_graph = loaded_model.find_by_name(new_output_node_name)
-    output_nodes  = combine([node_in_graph.owner])
-
-    # evaluate model and get desired node output
     print("Evaluating model output node '%s' for %s images." % (new_output_node_name, num_images))
 
     pred_count = 0
@@ -173,21 +151,9 @@ def eval_from_image(loaded_model, output_file, test_map_file):
     with open(output_file, 'wb') as results_file:
         with open(test_map_file, "r") as input_file:
             for line in input_file:
-                # format image and compute model output
                 tokens = line.rstrip().split('\t')
                 img_file = tokens[0]
-                img_input = get_cntk_image_input(img_file)
-                arguments = { output_nodes.arguments[0]: [img_input] }
-                output = output_nodes.eval(arguments)
-
-                # compute softmax probabilities from raw predictions
-                try:
-                    exp_out = np.exp(output[0, 0].astype(np.float64))
-                except FloatingPointError:
-                    exp_out = output[0, 0].astype(np.float64)
-
-                sum_exp = np.sum(exp_out)
-                probs = np.divide(exp_out, sum_exp)
+                probs = eval_single_image(loaded_model, img_file)
 
                 pred_count += 1
                 true_label = int(tokens[1])
@@ -207,7 +173,7 @@ if __name__ == '__main__':
     data_folder = os.path.join(base_folder, "..", "DataSets", "Flowers")
     os.chdir(os.path.join(data_folder))
     train_map_file = os.path.join(data_folder, "test_map.txt")
-    test_map_file = os.path.join(data_folder, "val_map.txt")
+    test_map_file = os.path.join(data_folder, "train_map.txt")
     num_classes = 102
 
     # check for model and data existence
@@ -227,7 +193,6 @@ if __name__ == '__main__':
 
     # Evaluate the test set
     # print_all_nodes(trained_model)
-    eval_from_image(trained_model, output_file, test_map_file)
-
+    eval_test_images(trained_model, output_file, test_map_file)
 
     print("Done. Wrote output to %s" % output_file)
