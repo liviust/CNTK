@@ -24,7 +24,7 @@ from cntk.learner import momentum_sgd, learning_rate_schedule, momentum_as_time_
 
 
 # general settings
-make_mode = False
+make_mode = True
 base_folder = os.path.dirname(os.path.abspath(__file__))
 tl_model_file = os.path.join(base_folder, "Output", "TransferLearning.model")
 output_file = os.path.join(base_folder, "Output", "predOutput.txt")
@@ -161,7 +161,7 @@ def eval_test_images(loaded_model, output_file, test_map_file):
                 if predicted_label == true_label:
                     correct_count += 1
 
-                # np.savetxt(results_file, probs[np.newaxis], fmt="%.3f")
+                np.savetxt(results_file, probs[np.newaxis], fmt="%.3f")
                 if pred_count % 500 == 0:
                     print("Processed %s samples (%s correct)" % (pred_count, (correct_count / pred_count)))
 
@@ -172,8 +172,8 @@ if __name__ == '__main__':
     # define data location and characteristics
     data_folder = os.path.join(base_folder, "..", "DataSets", "Flowers")
     os.chdir(os.path.join(data_folder))
-    train_map_file = os.path.join(data_folder, "test_map.txt")
-    test_map_file = os.path.join(data_folder, "train_map.txt")
+    train_map_file = os.path.join(data_folder, "6k_img_map.txt")
+    test_map_file = os.path.join(data_folder, "1k_img_map.txt")
     num_classes = 102
 
     # check for model and data existence

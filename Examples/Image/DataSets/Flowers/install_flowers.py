@@ -45,7 +45,7 @@ def download_flowers_data():
         setid = loadmat(set_filename)
         idx_train = setid['trnid'][0] - 1
         idx_test = setid['tstid'][0] - 1
-        idx_valid = setid['valid'][0] - 1
+        idx_val = setid['valid'][0] - 1
 
         # get image paths and 0-based image labels
         image_paths = np.array(sorted(glob.glob(dataset_folder + '/jpg/*.jpg')))
@@ -56,11 +56,12 @@ def download_flowers_data():
         np.random.seed(23)
         idx_train = idx_train[np.random.permutation(len(idx_train))]
         idx_test = idx_test[np.random.permutation(len(idx_test))]
-        idx_valid = idx_valid[np.random.permutation(len(idx_valid))]
+        idx_val = idx_val[np.random.permutation(len(idx_val))]
 
-        write_to_file('train_map.txt', dataset_folder, image_paths[idx_train], image_labels[idx_train])
-        write_to_file('test_map.txt', dataset_folder, image_paths[idx_test], image_labels[idx_test])
-        write_to_file('val_map.txt', dataset_folder, image_paths[idx_valid], image_labels[idx_valid])
+        # Confusingly the training set contains 1k images and the test set contains 6k images
+        write_to_file('1k_img_map.txt', dataset_folder, image_paths[idx_train], image_labels[idx_train])
+        write_to_file('6k_img_map.txt', dataset_folder, image_paths[idx_test], image_labels[idx_test])
+        write_to_file('val_map.txt', dataset_folder, image_paths[idx_val], image_labels[idx_val])
 
         # clean up
         os.remove(tar_filename)
