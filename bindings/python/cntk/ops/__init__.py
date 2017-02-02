@@ -647,9 +647,13 @@ def unpooling(operand, pooling_input, unpooling_type, unpooling_window_shape, st
 def batch_normalization(operand, scale, bias, running_mean, running_inv_std, spatial,
                         normalization_time_constant=5000, blend_time_constant=0,
                         epsilon=0.00001, use_cudnn_engine=False, name=''):
-    raise DeprecationWarning("batch_normalization requires an additional "
-                             "'running_sample_count' parameter, which can be "
-                             "instantiated as 'constant(0., (1))'")
+    import warnings
+    warnings.warn("batch_normalization requires an additional "
+                  "'running_sample_count' parameter, which can be "
+                  "instantiated as 'constant(0)'", DeprecationWarning)
+
+    return batch_normalization(operand, scale, bias, running_mean, running_inv_std, constant(0), 
+        spatial, normalization_time_constant, blend_time_constant, epsilon, use_cudnn_engine, name)
 
 @typemap
 def batch_normalization(operand, scale, bias, running_mean, running_inv_std, running_sample_count, spatial,
@@ -669,8 +673,10 @@ def batch_normalization(operand, scale, bias, running_mean, running_inv_std, run
          training as well. You must pass a constant tensor with initial value 0 and the same dimensions
          as ``scale`` and ``bias``
         running_inv_std: running variance. Represented as ``running_mean``
-        running_sample_count: You must pass a constant tensor with initial value 0 and dimension (1,) 
-         with device=cpu()
+        running_sample_count: Denotes the total number of samples that have been used so far to compute 
+         the ``running_mean`` and ``running_inv_std`` parameters. When defining a new model from scratch, 
+         the value for this parameter should be a scalar (either rank-0 ``constant(val)`` or
+         rank-1 ``constant(val, shape=(1,))``)
         spatial(bool): flag that indicates whether to compute mean/var for each feature in a minibatch
          independently or, in case of convolutional layers, per future map
         normalization_time_constant(float, default 5000): time constant for computing running average of

@@ -514,7 +514,7 @@ void NDLNodeEvaluatorImpl<ElemType>::Evaluate(NDLNode<ElemType>* node, const wst
             RuntimeError("%ls should have 5 fixed parameters[inputValueNodeName, scale, bias, runMean, runVariance].", cnNodeType.c_str());
 
         // setup the parameter position of children so we can hook them up later
-        nodeParamCount = 5;
+        nodeParamCount = 6;
         nodeParamStart = 0;
 
         if (pass == ndlPassInitial)
@@ -539,6 +539,18 @@ void NDLNodeEvaluatorImpl<ElemType>::Evaluate(NDLNode<ElemType>* node, const wst
             ImageLayoutKind imageLayoutKind = ImageLayoutKindFrom(node->GetOptionalParameter("imageLayout", "CHW"));
 
             nodePtr = builder.BatchNormalization(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, spatial, normTimeConst, blendTimeConst, epsilon, useCntkEngine, imageLayoutKind, name);
+
+            // Patch up NDL network config by creating and injecting an additional input parameter for
+            // BatchNormalizationNode
+            ComputationNodePtr runSampleCount = builder.CreateLearnableParameter(name + L".run_sample_count", TensorShape(1));
+            runSampleCount->SetLearningRateMultiplier(0);
+            m_net->InitLearnableParameters(runSampleCount, L"fixedValue", 0);
+            
+            NDLNode<ElemType>* runCountNode = new NDLNode<ElemType>("runCount", ConfigValue("0"), node->GetParentScript(), ndlTypeConstant);
+
+            runCountNode->SetEvalValue(runSampleCount.get());
+
+            node->InsertParam(runCountNode);
         }
     }
     else if (cnNodeType == OperationNameOf(CropNode))
@@ -629,16 +641,6 @@ void NDLNodeEvaluatorImpl<ElemType>::Evaluate(NDLNode<ElemType>* node, const wst
             vector<ComputationNodeBasePtr> inputNodes;
             for (let& in : inputs)
                 inputNodes.push_back(ComputationNode<ElemType>::FromVoidPtr(in));
-
-            // Patch up NDL network config by creating and injecting an additional input for
-            // BatchNormalizationNode
-            if (cnNodeType == OperationNameOf(BatchNormalizationNode)) 
-            {
-                ComputationNodePtr runSampleCount = builder.CreateLearnableParameter(name + L".run_sample_count", TensorShape(1));
-                runSampleCount->SetLearningRateMultiplier(0);
-                m_net->InitLearnableParameters(runSampleCount, L"fixedValue", 0);
-                inputNodes.push_back(runSampleCount);
-            }
 
             nodePtr->AttachInputs(inputNodes);
 #else       // TODO: delete this

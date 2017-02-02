@@ -62,5 +62,6 @@ BOOST_AUTO_TEST_CASE(TestLoadingNetworkFromLegacyLegacyBSModel)
     BOOST_CHECK(net != nullptr);
 };
 
+BOOST_AUTO_TEST_SUITE_END()
 
-}}}}}
+}}}}

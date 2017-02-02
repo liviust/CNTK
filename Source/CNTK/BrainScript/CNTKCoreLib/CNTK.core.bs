@@ -615,7 +615,7 @@ ColumnwiseCrossProduct = KhatriRaoProduct // deprecated
 ErrorPrediction = ClassificationError   # legacy name
 Delay = PastValue 
 
-BatchNormalization(input, scale, bias, runMean, runVariance, runCount=None, spatial, normalizationTimeConstant = 0, blendTimeConstant = 0, epsilon = 0.00001, useCntkEngine = true, imageLayout='CHW', tag='') = new ComputationNode
+BatchNormalization(input, scale, bias, runMean, runVariance, runCount=None, spatial=false, normalizationTimeConstant = 0, blendTimeConstant = 0, epsilon = 0.00001, useCntkEngine = true, imageLayout='CHW', tag='') = new ComputationNode
 {
     operation = 'BatchNormalization'
     inputs =

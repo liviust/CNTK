@@ -199,6 +199,8 @@ void ComputationNetwork::SaveToFileImpl(const wstring& fileName, const FileOptio
 
 size_t ComputationNetwork::GetModelVersion(File& fstream) 
 {
+    fstream.GetMarker(FileMarker::fileMarkerBeginSection, L"BCN");
+
     // model version
     size_t modelVersion = CNTK_MODEL_VERSION_1; // if version info is not there it is version 1
     if (fstream.TryGetMarker(FileMarker::fileMarkerBeginSection, L"BVersion"))
@@ -273,8 +275,6 @@ void ComputationNetwork::Read(const wstring& fileName)
     ClearNetwork();
 
     File fstream(fileName, FileOptions::fileOptionsBinary | FileOptions::fileOptionsRead);
-
-    fstream.GetMarker(FileMarker::fileMarkerBeginSection, L"BCN");
 
     auto modelVersion = GetModelVersion(fstream);
 

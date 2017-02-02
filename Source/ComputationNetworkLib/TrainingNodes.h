@@ -2603,7 +2603,6 @@ public:
             double blendFactor = ComputeBlendFactor();  // interpolation weight for the running statistics (the current MB statistics are weighted with 1-this)
 
             // Compute all derivatives in one step. Save derivatives with respect to scale and bias in temp matrices.
-            // TODO: Move this out. Follow the same pattern as the RNN node. But can't without requiring another buffer.
             m_bnEng->Backward(sliceInputValue, sliceOutputGrad, // (in)  input from below, gradient from above
                               sliceInputGrad,                   // (out) gradient for data input goes here  --TODO: Check if cudnn engine adds the gradient, or just overwrites (BUGBUG). CNTK engine is OK.
                               scale,                            // (in)  out of scale and bias, only scale is needed in gradient propagation
@@ -2882,6 +2881,11 @@ private:
 
     //  - 0 checks test this first, to avoid unnecessary GPU syncs
     mutable bool m_runCountIsZero;
+    
+    // we use this count to temporarily store the number of samples seen, loaded from a model file
+    // with a version < 19, before the running mean sample count was added as an addition input for
+    // BatchNorm node. The value is copied over into the corresponding input parameter inside the 
+    // AttachInputs() call.
     size_t m_pre19SampleCount;
     Matrix<ElemType> m_one;  // constant [1x1] matrix that contains a 1 (used for updating the shared count)
 
