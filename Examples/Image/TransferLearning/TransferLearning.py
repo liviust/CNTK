@@ -96,7 +96,7 @@ def train_model(base_model_file, feature_node_name, last_hidden_node_name, num_c
     pe = classification_error(tl_model, label_input)
 
     # Set learning parameters
-    max_epochs = 3
+    max_epochs = 20
     mb_size = 50
     momentum_time_constant = 20
     momentum_per_mb = 0.9
@@ -204,11 +204,11 @@ def eval_from_image(loaded_model, output_file, test_map_file):
 
 if __name__ == '__main__':
     # define data location and characteristics
-    data_folder = os.path.join(base_folder, "..", "DataSets", "CIFAR-10")
+    data_folder = os.path.join(base_folder, "..", "DataSets", "Flowers")
     os.chdir(os.path.join(data_folder))
-    train_map_file = os.path.join(data_folder, "train_map.txt")
-    test_map_file = os.path.join(data_folder, "test_map.txt")
-    num_classes = 10
+    train_map_file = os.path.join(data_folder, "test_map.txt")
+    test_map_file = os.path.join(data_folder, "val_map.txt")
+    num_classes = 102
 
     # check for model and data existence
     if not (os.path.exists(base_model_file) and os.path.exists(train_map_file) and os.path.exists(test_map_file)):
