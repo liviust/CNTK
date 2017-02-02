@@ -4402,7 +4402,8 @@ namespace CNTK
             const TrainingParameterPerUnitSchedule<size_t, TrainingParameterSchedule<size_t>::UnitType::Sample>& minibatchSizeSchedule,
             size_t checkpointFrequencyInSamples,
             const std::wstring& checkPointFileName,
-            bool resoreFromCheckpointIfExists = true,
+            bool restoreFromCheckpointIfExists = true,
+            bool saveAllCheckpoints = false,
             size_t maxNumberOfSamples = std::numeric_limits<size_t>::max());
 
         ///
@@ -4460,7 +4461,7 @@ namespace CNTK
         TrainingSession(const TrainingSession&) = delete; TrainingSession& operator=(const TrainingSession&) = delete; TrainingSession& operator=(TrainingSession&&) = delete; TrainingSession(TrainingSession&&) = delete;
 
         void Restore();
-        void SaveCheckpoint();
+        void SaveCheckpoint(bool last);
 
         static const std::wstring s_checkpointIndex;
         static const std::wstring s_trainingMinibatchSource;
@@ -4478,6 +4479,7 @@ namespace CNTK
         const MinibatchSizeSchedule m_minibatchSizeSchedule;
         const size_t m_maxNumberOfSamples;
         const bool m_restoreFromCheckpointIfExists;
+        const bool m_saveAllCheckpoints;
     };
 
     CNTK_API TrainingSessionPtr CreateBasicTrainingSession(
