@@ -4402,6 +4402,8 @@ namespace CNTK
             const TrainingParameterPerUnitSchedule<size_t, TrainingParameterSchedule<size_t>::UnitType::Sample>& minibatchSizeSchedule,
             size_t checkpointFrequencyInSamples,
             const std::wstring& checkPointFileName,
+            const MinibatchSourcePtr& crossValidationSource = nullptr,
+            size_t crossValidationFrequencyInSamples = 0,
             bool restoreFromCheckpointIfExists = true,
             bool saveAllCheckpoints = false,
             size_t maxNumberOfSamples = std::numeric_limits<size_t>::max());
@@ -4441,12 +4443,22 @@ namespace CNTK
         ///
         /// Optionally overridable callback that is invoked before each checkpoint.
         ///
-        CNTK_API virtual void OnCheckpointStart() {};
+        CNTK_API virtual void OnCheckpointStart(size_t /*checkpointIndex*/) {};
 
         ///
         /// Optionally overridable callback that is invoked after each checkpoint.
         ///
-        CNTK_API virtual void OnCheckpointEnd() {};
+        CNTK_API virtual void OnCheckpointEnd(size_t /*checkpointIndex*/) {};
+
+        ///
+        /// Optionally overridable callback that is invoked before each cross validation.
+        ///
+        CNTK_API virtual void OnCrossValidationStart(size_t /*validationIndex*/) {};
+
+        ///
+        /// Optionally overridable callback that is invoked after each cross validation.
+        ///
+        CNTK_API virtual void OnCrossValidationEnd(size_t /*validationIndex*/, double /*averageError*/) {};
 
     protected:
         ///
@@ -4460,16 +4472,26 @@ namespace CNTK
         /// Disallow copy and move construction and assignment
         TrainingSession(const TrainingSession&) = delete; TrainingSession& operator=(const TrainingSession&) = delete; TrainingSession& operator=(TrainingSession&&) = delete; TrainingSession(TrainingSession&&) = delete;
 
-        void Restore();
+        // Auxilary functions.
+        void GetNextMinibatch(const MinibatchSourcePtr& source, std::unordered_map<Variable, ValuePtr>& minibatch, size_t workerRank, size_t numberOfWorkers, const DeviceDescriptor& computeDevice);
+        void GetTrainingMinibatch(std::unordered_map<Variable, ValuePtr>& minibatch, const DeviceDescriptor& computeDevice);
+        void GetCrossValidationMinibatch(std::unordered_map<Variable, ValuePtr>& minibatch, const DeviceDescriptor& computeDevice);
+
+        void RestoreCheckpoint();
         void SaveCheckpoint(bool last);
+        void CrossValidate(const DeviceDescriptor& computeDevice);
 
-        static const std::wstring s_checkpointIndex;
-        static const std::wstring s_trainingMinibatchSource;
+        inline void PerformCheckPointIfNeeded();
+        inline void PerformCrossValidationIfNeeded();
 
+        // Checkpointing
         const size_t m_checkpointFrequencyinSamples;
         const std::wstring m_checkPointFileName;
+        const bool m_restoreFromCheckpointIfExists;
+        const bool m_saveAllCheckpoints;
         size_t m_currentCheckpointIndex;
 
+        // Training
         MinibatchSourcePtr m_trainingSource;
         TrainerPtr m_trainer;
         std::unordered_map<Variable, StreamInformation> m_modelInputToMinibatchSourceStream;
@@ -4478,8 +4500,11 @@ namespace CNTK
         size_t m_numberOfWorkers;
         const MinibatchSizeSchedule m_minibatchSizeSchedule;
         const size_t m_maxNumberOfSamples;
-        const bool m_restoreFromCheckpointIfExists;
-        const bool m_saveAllCheckpoints;
+
+        // Cross validation.
+        MinibatchSourcePtr m_crossValidationSource;
+        const size_t m_crossValidationFrequencyInSamples;
+        size_t m_currentCrossValidationIndex;
     };
 
     CNTK_API TrainingSessionPtr CreateBasicTrainingSession(
