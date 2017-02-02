@@ -20,7 +20,7 @@ from cntk.graph import print_all_nodes
 from cntk.layers import Dense
 from cntk.ops import input_variable, parameter, cross_entropy_with_softmax, classification_error, times, combine
 from cntk.utils import log_number_of_parameters, ProgressPrinter
-from cntk.learner import momentum_sgd, learning_rate_schedule, momentum_as_time_constant_schedule
+from cntk.learner import momentum_sgd, learning_rate_schedule, momentum_as_time_constant_schedule, momentum_schedule
 
 
 # general settings
@@ -45,10 +45,8 @@ last_hidden_node_name = "h2_d"
 def create_mb_source(map_file, image_height, image_width, num_channels, num_classes, randomize=False):
     transforms = [ImageDeserializer.scale(width=image_width, height=image_height, channels=num_channels, interpolations='linear')]
     image_source = ImageDeserializer(map_file)
-    #image_source.ignore_labels()
     image_source.map_features(features_stream_name, transforms)
     image_source.map_labels(label_stream_name, num_classes)
-
     return MinibatchSource(image_source, randomize=randomize)
 
 
@@ -72,6 +70,7 @@ def create_model(base_model_file, feature_node_name, last_hidden_node_name, num_
     # Add new dense layer for class prediction
     feat_norm = input_features - Constant(114)
     cloned_out = cloned_layers(feat_norm)
+    #z = Dense(num_classes, init=glorot_uniform(), activation=None, name=new_output_node_name) (cloned_out)
     z = Dense(num_classes, activation=None, name=new_output_node_name) (cloned_out)
 
     return z
@@ -100,10 +99,15 @@ def train_model(base_model_file, feature_node_name, last_hidden_node_name, num_c
     max_epochs = 3
     mb_size = 50
     momentum_time_constant = 20
+    momentum_per_mb = 0.9
     l2_reg_weight = 0.0005
-    lr_per_sample = 0.001
-    lr_schedule = learning_rate_schedule(lr_per_sample, unit=UnitType.sample)
-    mm_schedule = momentum_as_time_constant_schedule(momentum_time_constant)
+    lr_per_sample = 0.0001
+    lr_per_mb = 0.01
+
+    # lr_schedule = learning_rate_schedule(lr_per_sample, unit=UnitType.sample)
+    lr_schedule = learning_rate_schedule(lr_per_mb, unit=UnitType.minibatch)
+    # mm_schedule = momentum_as_time_constant_schedule(momentum_time_constant)
+    mm_schedule = momentum_schedule(momentum_per_mb)
 
     # Instantiate the trainer object
     learner = momentum_sgd(tl_model.parameters, lr_schedule, mm_schedule, l2_regularization_weight=l2_reg_weight)
